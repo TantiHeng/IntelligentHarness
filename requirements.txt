@@ -1,0 +1,7 @@
+langchain
+langchain-openai
+langgraph
+pydantic
+python-dotenv
+pytest
+pytest-asyncio
