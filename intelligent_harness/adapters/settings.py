@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from intelligent_harness.adapters.paths import project_path
 
-
 load_dotenv(project_path(".env"))
 
 
@@ -55,7 +54,7 @@ def load_runtime_config(
     db_path: str | Path | None = None,
 ) -> RuntimeConfig:
     resolved_db_path = Path(
-        db_path or os.getenv("DB_PATH", project_path("data/harness_records.db"))
+        db_path or os.getenv("DB_PATH") or project_path("data/harness_records.db")
     )
     if not resolved_db_path.is_absolute():
         resolved_db_path = project_path(resolved_db_path)

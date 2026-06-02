@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -59,7 +59,7 @@ class SQLiteAuditRepository:
                     self._json(state.review),
                     "\n".join(state.errors) or None,
                     state.model_dump_json(ensure_ascii=False),
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
         return record_id

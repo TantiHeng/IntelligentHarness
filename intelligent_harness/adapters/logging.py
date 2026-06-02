@@ -24,9 +24,7 @@ def setup_logger(
     logger.propagate = False
     handler = logging.StreamHandler()
     handler.setLevel(parsed_level)
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s"))
     logger.addHandler(handler)
     Path(log_dir or project_path("logs")).mkdir(parents=True, exist_ok=True)
     return logger

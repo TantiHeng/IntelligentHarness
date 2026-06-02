@@ -5,6 +5,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from intelligent_harness.adapters.logging import logger
+from intelligent_harness.errors import RetryableInferenceError, classify_inference_error
 from intelligent_harness.events import (
     BusinessEvent,
     BusinessEventService,
@@ -19,6 +20,8 @@ from intelligent_harness.ports import AuditRepository, Inference, Reviewer
 
 
 class HarnessWorkflow:
+    """Run the bounded inference-review transaction and return a host-safe result."""
+
     def __init__(
         self,
         inference: Inference,
@@ -37,6 +40,7 @@ class HarnessWorkflow:
         self.app = self._build_graph()
 
     def execute(self, state: HarnessWorkflowState) -> HarnessResponse:
+        """Execute one transaction, converting uncaught system failures to `error`."""
         try:
             raw_result = self.app.invoke(
                 state,
@@ -49,10 +53,12 @@ class HarnessWorkflow:
         return self._response_from_state(result)
 
     def _infer(self, state: HarnessWorkflowState, *, retry: bool = False) -> dict[str, Any]:
+        """Run inference and retain enough error state for an explicit error route."""
         attempt = state.inference_attempt + 1
         try:
             output = self._run_inference(state, retry=retry)
         except Exception as exc:
+            error = classify_inference_error(exc)
             self._publish_event(
                 state,
                 severity=2,
@@ -60,15 +66,16 @@ class HarnessWorkflow:
                 step="inference",
                 inference_attempt=attempt,
                 review_attempt=0,
-                reasons=[str(exc)],
+                reasons=[str(error)],
             )
             return {
                 "output": None,
                 "review": None,
                 "inference_attempt": attempt,
                 "review_attempt": 0,
-                "last_error": str(exc),
-                "errors": [*state.errors, str(exc)],
+                "last_error": str(error),
+                "last_error_retryable": isinstance(error, RetryableInferenceError),
+                "errors": [*state.errors, str(error)],
             }
         self._publish_event(
             state,
@@ -85,6 +92,7 @@ class HarnessWorkflow:
             "inference_attempt": attempt,
             "review_attempt": 0,
             "last_error": None,
+            "last_error_retryable": False,
         }
 
     def _run_inference(
@@ -98,8 +106,28 @@ class HarnessWorkflow:
         return self.inference.infer(state.input)
 
     def _review(self, state: HarnessWorkflowState) -> dict[str, Any]:
+        """Review one generated object; routing guarantees output is present."""
+        if not isinstance(state.output, dict):
+            raise TypeError("审核节点缺少结构化模型输出。")
         attempt = state.review_attempt + 1
-        review = self.reviewer.review(state.output)
+        try:
+            review = self.reviewer.review(state.output)
+        except Exception as exc:
+            self._publish_event(
+                state,
+                severity=2,
+                event_type=BusinessEventType.REVIEW_FAILED,
+                step="review",
+                review_attempt=attempt,
+                reasons=[str(exc)],
+            )
+            return {
+                "review": None,
+                "review_attempt": attempt,
+                "last_error": str(exc),
+                "last_error_retryable": False,
+                "errors": [*state.errors, str(exc)],
+            }
         self._publish_event(
             state,
             severity=3,
@@ -119,24 +147,34 @@ class HarnessWorkflow:
                 content=state.output,
                 reasons=review.reasons,
             )
-        return {"review": review, "review_attempt": attempt}
+        return {
+            "review": review,
+            "review_attempt": attempt,
+            "last_error": None,
+            "last_error_retryable": False,
+        }
 
     def _finish(
         self,
         state: HarnessWorkflowState,
         decision: HarnessDecision,
     ) -> dict[str, Any]:
-        reasons = (
-            state.review.reasons
-            if state.review
-            else [state.last_error or "无审核结果"]
-        )
+        reasons = state.review.reasons if state.review else [state.last_error or "无审核结果"]
         if decision == HarnessDecision.REJECTED:
             self._publish_event(
                 state,
                 severity=1,
                 event_type=BusinessEventType.FINAL_REJECTED,
                 step="reject",
+                content=state.output,
+                reasons=reasons,
+            )
+        elif decision == HarnessDecision.ERROR:
+            self._publish_event(
+                state,
+                severity=1,
+                event_type=BusinessEventType.FINAL_ERROR,
+                step="error",
                 content=state.output,
                 reasons=reasons,
             )
@@ -174,13 +212,17 @@ class HarnessWorkflow:
         )
 
     def _route_inference(self, state: HarnessWorkflowState) -> str:
+        """Route successful output to review and failed inference only to error paths."""
         if state.output is not None:
             return "review"
-        if state.inference_attempt < self.max_inference_attempts:
+        if state.last_error_retryable and state.inference_attempt < self.max_inference_attempts:
             return "retry"
-        return "reject"
+        return "error"
 
     def _route_review(self, state: HarnessWorkflowState) -> str:
+        """Retry reviews first, regenerate rejected output second, then reject."""
+        if state.last_error is not None:
+            return "error"
         if state.review and state.review.approved:
             return "approve"
         if state.review_attempt < self.max_review_attempts:
@@ -189,7 +231,7 @@ class HarnessWorkflow:
             return "retry"
         return "reject"
 
-    def _build_graph(self):
+    def _build_graph(self) -> Any:
         graph = StateGraph(HarnessWorkflowState)
         graph.add_node("infer", self._infer)
         graph.add_node("retry", lambda state: self._infer(state, retry=True))
@@ -201,6 +243,10 @@ class HarnessWorkflow:
             "reject",
             lambda state: self._finish(state, HarnessDecision.REJECTED),
         )
+        graph.add_node(
+            "error",
+            lambda state: self._finish(state, HarnessDecision.ERROR),
+        )
         graph.add_node("review", self._review)
         graph.add_edge(START, "infer")
         graph.add_conditional_edges("infer", self._route_inference)
@@ -208,6 +254,7 @@ class HarnessWorkflow:
         graph.add_conditional_edges("review", self._route_review)
         graph.add_edge("approve", END)
         graph.add_edge("reject", END)
+        graph.add_edge("error", END)
         return graph.compile()
 
     @staticmethod

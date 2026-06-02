@@ -1,9 +1,9 @@
 """CLI 命令常量：集中维护受控命令集合，不执行命令行为。"""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Command(str, Enum):
+class Command(StrEnum):
     CONFIG_VALIDATE = "config-validate"
     SCENARIO_LIST = "scenario-list"
     SCENARIO_VALIDATE = "scenario-validate"

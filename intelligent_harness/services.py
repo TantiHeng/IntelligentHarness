@@ -127,15 +127,8 @@ class ReviewService:
     ) -> ReviewResult | None:
         if self.scenario.reviewer != "marketing_copy":
             return None
-        text = "\n".join(
-            str(output.get(key, ""))
-            for key in ("title", "body", "call_to_action")
-        )
-        hits = [
-            phrase
-            for phrase in self.FORBIDDEN_MARKETING_PHRASES
-            if phrase in text
-        ]
+        text = "\n".join(str(output.get(key, "")) for key in ("title", "body", "call_to_action"))
+        hits = [phrase for phrase in self.FORBIDDEN_MARKETING_PHRASES if phrase in text]
         if not hits:
             return None
         return ReviewResult(

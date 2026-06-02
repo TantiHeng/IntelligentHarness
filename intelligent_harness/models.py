@@ -1,6 +1,6 @@
 """领域模型：定义工作流状态、审核结果和宿主响应，不执行流程控制。"""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -14,7 +14,7 @@ class ReviewResult(BaseModel):
     revision_suggestions: list[str] = Field(default_factory=list)
 
 
-class HarnessDecision(str, Enum):
+class HarnessDecision(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"
     ERROR = "error"
@@ -33,6 +33,7 @@ class HarnessWorkflowState(BaseModel):
     inference_attempt: int = 0
     review_attempt: int = 0
     last_error: str | None = None
+    last_error_retryable: bool = False
     errors: list[str] = Field(default_factory=list)
 
 

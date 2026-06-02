@@ -11,7 +11,6 @@ from intelligent_harness.cli.commands import HANDLERS
 from intelligent_harness.cli.constants import Command
 from intelligent_harness.cli.parser import build_parser
 
-
 EXPECTED_USER_ERRORS = (
     OSError,
     ValueError,

@@ -1,7 +1,7 @@
 """业务事件：定义事件结构与发布策略，不负责实现具体告警渠道。"""
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -10,18 +10,20 @@ from pydantic import BaseModel, Field
 from intelligent_harness.ports import AlertSink, AuditRepository, PrivacyProcessor
 
 
-class BusinessEventType(str, Enum):
+class BusinessEventType(StrEnum):
     NODE_COMPLETED = "node_completed"
     REVIEW_REJECTED = "review_rejected"
     INFERENCE_FAILED = "inference_failed"
+    REVIEW_FAILED = "review_failed"
     FINAL_REJECTED = "final_rejected"
+    FINAL_ERROR = "final_error"
 
 
 class BusinessEvent(BaseModel):
     event_id: str = Field(default_factory=lambda: str(uuid4()))
     run_id: str
     thread_id: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     severity: int = Field(..., ge=1, le=3)
     event_type: BusinessEventType
     step: str

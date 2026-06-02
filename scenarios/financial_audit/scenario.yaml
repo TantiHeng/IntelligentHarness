@@ -1,5 +1,5 @@
 name: financial_audit
-description: 财务材料异常识别
+description: "[DEMO SKELETON] 财务材料异常识别，需补充领域规则后方可用于实际业务"
 reviewer: llm
 prompts:
   inference: prompts/inference.txt

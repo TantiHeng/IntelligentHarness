@@ -16,6 +16,7 @@ from intelligent_harness.services import InferenceService
 class LLM:
     def __init__(self):
         self.prompt = ""
+
     def invoke(self, prompt):
         self.prompt = prompt
         return '{"title":"标题","body":"正文","call_to_action":"联系"}'
@@ -29,6 +30,7 @@ class Enhancer:
 class Privacy:
     def before_model(self, value, **kwargs):
         return {"masked": True}
+
     def before_event_store(self, event):
         return event.model_copy(update={"content": {"masked": True}})
 
@@ -42,8 +44,16 @@ def test_optional_context_and_privacy_extensions_are_called(tmp_path):
 
     repo = SQLiteAuditRepository(tmp_path / "events.db")
     events = BusinessEventService(repo, privacy=Privacy())
-    events.publish(BusinessEvent(
-        run_id="r", thread_id="t", severity=1, event_type=BusinessEventType.FINAL_REJECTED,
-        step="reject", scenario="marketing_copy", inference_attempt=1, content={"secret": "raw"},
-    ))
+    events.publish(
+        BusinessEvent(
+            run_id="r",
+            thread_id="t",
+            severity=1,
+            event_type=BusinessEventType.FINAL_REJECTED,
+            step="reject",
+            scenario="marketing_copy",
+            inference_attempt=1,
+            content={"secret": "raw"},
+        )
+    )
     assert json.loads(repo.list_events("r")[0]["content_json"]) == {"masked": True}

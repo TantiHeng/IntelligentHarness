@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from intelligent_harness.models import HarnessWorkflowState, ReviewResult
 
 
-class EnhancementStage(str, Enum):
+class EnhancementStage(StrEnum):
     INFERENCE = "inference"
     REVIEW = "review"
 

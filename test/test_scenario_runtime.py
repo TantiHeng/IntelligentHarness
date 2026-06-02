@@ -14,11 +14,22 @@ from intelligent_harness.scenarios import ScenarioRegistry
 def test_registry_loads_four_external_scenarios():
     scenarios = ScenarioRegistry().list()
     assert {item.name for item in scenarios} == {
-        "marketing_copy", "content_safety", "financial_audit", "loan_qualification"
+        "marketing_copy",
+        "content_safety",
+        "financial_audit",
+        "loan_qualification",
     }
 
 
-@pytest.mark.parametrize("name", ["marketing_copy", "content_safety", "financial_audit", "loan_qualification"])
+def test_non_marketing_scenarios_are_labeled_demo_skeletons():
+    registry = ScenarioRegistry()
+    for name in ("content_safety", "financial_audit", "loan_qualification"):
+        assert "[DEMO SKELETON]" in registry.get(name).description
+
+
+@pytest.mark.parametrize(
+    "name", ["marketing_copy", "content_safety", "financial_audit", "loan_qualification"]
+)
 def test_scenario_resources_are_valid(name):
     ScenarioRegistry().get(name).validate_resources()
 
@@ -26,8 +37,11 @@ def test_scenario_resources_are_valid(name):
 def test_json_schema_rejects_invalid_loan_input():
     scenario = ScenarioRegistry().get("loan_qualification")
     with pytest.raises(ValidationError):
-        scenario.validate("input", {
-            "applicant": {"applicant_id": "a-1", "annual_income": -1},
-            "requested_amount": 100,
-            "loan_type": "personal",
-        })
+        scenario.validate(
+            "input",
+            {
+                "applicant": {"applicant_id": "a-1", "annual_income": -1},
+                "requested_amount": 100,
+                "loan_type": "personal",
+            },
+        )

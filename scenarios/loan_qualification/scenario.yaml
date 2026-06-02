@@ -1,5 +1,5 @@
 name: loan_qualification
-description: 贷款材料分析与审核建议
+description: "[DEMO SKELETON] 贷款材料分析与审核建议，需补充领域规则后方可用于实际业务"
 reviewer: llm
 prompts:
   inference: prompts/inference.txt

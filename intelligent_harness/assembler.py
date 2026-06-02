@@ -28,9 +28,7 @@ def build_harness(
     sink: AlertSink | None = None,
 ) -> HarnessWorkflow:
     runtime = config or load_runtime_config()
-    scenario = ScenarioRegistry().get(
-        scenario_name or runtime.settings.default_scenario
-    )
+    scenario = ScenarioRegistry().get(scenario_name or runtime.settings.default_scenario)
     repository = SQLiteAuditRepository(runtime.db_path)
     resolved_model = model
     if resolved_model is None and (inference is None or reviewer is None):

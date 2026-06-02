@@ -84,8 +84,6 @@ def _add_fault_inject(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument(
         "--output",
-        default=str(
-            project_path("fixtures/fault_injection/marketing_copy_rejected.json")
-        ),
+        default=str(project_path("fixtures/fault_injection/marketing_copy_rejected.json")),
         help="需要注入的 JSON 模型输出文件",
     )

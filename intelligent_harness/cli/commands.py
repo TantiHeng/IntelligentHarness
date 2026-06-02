@@ -19,7 +19,6 @@ from intelligent_harness.cli.fault_injection import (
 from intelligent_harness.models import HarnessWorkflowState
 from intelligent_harness.scenarios import ScenarioDefinition, ScenarioRegistry
 
-
 CommandHandler = Callable[[Namespace], None]
 
 
