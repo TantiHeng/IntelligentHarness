@@ -1,0 +1,13 @@
+{
+  "product": {
+    "name": "智能营销助手",
+    "selling_points": ["自动生成营销文案"]
+  },
+  "customer": {
+    "name": "某教育 SaaS 公司",
+    "pain_points": ["销售跟进效率低"],
+    "contact": "customer@example.com"
+  },
+  "channel": "email",
+  "tone": "专业、克制"
+}

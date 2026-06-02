@@ -1,0 +1,9 @@
+name: loan_qualification
+description: 贷款材料分析与审核建议
+reviewer: llm
+prompts:
+  inference: prompts/inference.txt
+  review: prompts/review.txt
+schemas:
+  input: schemas/input.schema.json
+  output: schemas/output.schema.json

@@ -1,0 +1,10 @@
+name: marketing_copy
+description: B2B 营销文案生成与合规审核
+reviewer: marketing_copy
+prompts:
+  inference: prompts/inference.txt
+  retry_inference: prompts/retry_inference.txt
+  review: prompts/review.txt
+schemas:
+  input: schemas/input.schema.json
+  output: schemas/output.schema.json

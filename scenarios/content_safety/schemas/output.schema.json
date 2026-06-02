@@ -1,0 +1,1 @@
+{"type":"object","required":["approved","risk_level"],"properties":{"approved":{"type":"boolean"},"risk_level":{"type":"string"},"categories":{"type":"array","items":{"type":"string"}},"reasons":{"type":"array","items":{"type":"string"}}}}
