@@ -1,0 +1,10 @@
+fault-inject	启动故障注入模式。跳过真实文案生成，直接使用手写模型输出测试后续审核链路。
+--scenario marketing_copy	选择营销文案审核场景。该场景决定使用哪套 Schema、风险语义样本和审核策略。
+--output ...marketing_copy_rejected.json	指定 Mock 的 LLM 文案输出。该文件模拟“模型生成了一份违规文案”。
+--mock-embeddings ...embeddings.json	指定 Mock 的向量数据。该文件模拟 Embedding 服务响应，避免调用真实向量模型。
+
+用以下命令mock embeddings输出和mock异常输出
+python cli.py fault-inject `
+  --scenario marketing_copy `
+  --output fixtures/fault_injection/marketing_copy_rejected.json `
+  --mock-embeddings fixtures/fault_injection/marketing_copy_rejected.embeddings.json

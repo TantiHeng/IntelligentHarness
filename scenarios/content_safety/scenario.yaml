@@ -1,0 +1,9 @@
+name: content_safety
+description: "[DEMO SKELETON] 内容风险分类与安全审核，需补充领域规则后方可用于实际业务"
+reviewer: llm
+prompts:
+  inference: prompts/inference.txt
+  review: prompts/review.txt
+schemas:
+  input: schemas/input.schema.json
+  output: schemas/output.schema.json

@@ -1,0 +1,7 @@
+{
+  "query_vector": [1.0, 0.0],
+  "default_sample_vector": [0.0, 1.0],
+  "sample_vectors": {
+    "稳赚不赔": [1.0, 0.0]
+  }
+}

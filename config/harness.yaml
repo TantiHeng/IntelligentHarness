@@ -1,0 +1,18 @@
+default_scenario: marketing_copy
+
+policy:
+  max_review_attempts: 3
+  max_inference_attempts: 3
+
+python_logging:
+  level: INFO
+
+business_events:
+  alert_severity_threshold: 2
+
+semantic_review:
+  review_again_threshold: 0.6
+  reject_threshold: 0.8
+  low_similarity_action: approve
+  medium_similarity_action: review_again
+  high_similarity_action: reject

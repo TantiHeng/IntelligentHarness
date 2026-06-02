@@ -1,0 +1,1 @@
+{"type":"object","required":["qualified","risk_level"],"properties":{"qualified":{"type":"boolean"},"risk_level":{"type":"string"},"reasons":{"type":"array","items":{"type":"string"}},"required_manual_checks":{"type":"array","items":{"type":"string"}}}}

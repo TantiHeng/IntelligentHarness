@@ -1,0 +1,9 @@
+langchain==1.2.6
+langchain-openai==1.2.1
+langgraph==1.0.6
+# langchain-core imports packaging at runtime but does not declare it.
+packaging==26.2
+pydantic==2.13.4
+python-dotenv==1.2.2
+PyYAML==6.0.1
+jsonschema==4.26.0
