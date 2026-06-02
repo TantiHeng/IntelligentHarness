@@ -25,19 +25,40 @@ flowchart TD
     B -- "No: non-retryable system error" --> E["Return error"]
     D -- "Yes" --> A
     D -- "No" --> E
-    C --> F{"Approved?"}
-    F -- "Yes" --> G["Return approved"]
-    F -- "No" --> H{"Review attempts remain?"}
+    C --> F{"Review action"}
+    F -- "approve" --> G["Return approved"]
+    F -- "reject" --> J["Return rejected"]
+    F -- "review_again" --> H{"Review attempts remain?"}
     H -- "Yes" --> C
-    H -- "No" --> I{"Inference attempts remain?"}
+    H -- "No" --> J
+    F -- "legacy reviewer rejection" --> I{"Inference attempts remain?"}
     I -- "Yes" --> A
-    I -- "No" --> J["Return rejected"]
+    I -- "No" --> J
 ```
 
 `intelligent_harness.errors.classify_inference_error()` keeps SDK-specific
 exceptions outside the graph. Standard connection and timeout failures, plus
 known SDK exception names, are retryable. Other inference failures are
 non-retryable unless an adapter explicitly raises `RetryableInferenceError`.
+
+## Semantic Layered Review
+
+The `marketing_copy` scenario uses `SemanticLayeredReviewer`. It embeds the
+candidate output, compares it with configured risk samples, and routes the
+highest cosine similarity score through three configurable bands. Sample
+vectors are cached when the reviewer is created.
+
+The default policy is:
+
+| Similarity | Action |
+|---|---|
+| `< 0.6` | `approve` |
+| `0.6` to `0.8`, inclusive | `review_again`: ask the LLM reviewer to re-evaluate |
+| `> 0.8` | `reject` |
+
+`review_again` is bounded by `policy.max_review_attempts`. The result metadata
+records the matched risk intent, sample text, cosine similarity, normalized
+Euclidean distance, thresholds, and selected semantic action.
 
 ## Events
 

@@ -1,4 +1,4 @@
-"""故障注入替身：提供手写模型输出用于诊断，不调用真实模型。"""
+"""故障注入替身：使用手写推理输出验证后续审核与拦截链路。"""
 
 import json
 from pathlib import Path
@@ -8,8 +8,64 @@ from intelligent_harness.models import ReviewResult
 from intelligent_harness.scenarios import ScenarioDefinition
 
 
+class InjectedEmbeddings:
+    """Return fixture vectors instead of calling an external embedding service."""
+
+    def __init__(
+        self,
+        sample_vectors: dict[str, list[float]],
+        query_vector: list[float],
+        default_sample_vector: list[float],
+    ) -> None:
+        self.sample_vectors = sample_vectors
+        self.query_vector = query_vector
+        self.default_sample_vector = default_sample_vector
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> "InjectedEmbeddings":
+        fixture_path = Path(path)
+        if not fixture_path.is_file():
+            raise ValueError(f"Mock Embedding 文件不存在: {fixture_path}")
+        try:
+            value = json.loads(fixture_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Mock Embedding 文件不是合法 JSON: {fixture_path}") from exc
+        if not isinstance(value, dict):
+            raise ValueError(f"Mock Embedding 文件必须是 JSON object: {fixture_path}")
+        sample_vectors = value.get("sample_vectors", {})
+        query_vector = value.get("query_vector")
+        default_sample_vector = value.get("default_sample_vector")
+        if not isinstance(sample_vectors, dict):
+            raise ValueError("Mock Embedding sample_vectors 必须是 JSON object。")
+        return cls(
+            {
+                text: cls._validate_vector(vector, label=f"sample_vectors[{text!r}]")
+                for text, vector in sample_vectors.items()
+                if isinstance(text, str)
+            },
+            cls._validate_vector(query_vector, label="query_vector"),
+            cls._validate_vector(default_sample_vector, label="default_sample_vector"),
+        )
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if len(texts) == 1 and texts[0] not in self.sample_vectors:
+            return [self.query_vector]
+        return [
+            self.sample_vectors.get(text, self.default_sample_vector)
+            for text in texts
+        ]
+
+    @staticmethod
+    def _validate_vector(value: Any, *, label: str) -> list[float]:
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"Mock Embedding {label} 必须是非空数值 array。")
+        if not all(isinstance(item, (int, float)) for item in value):
+            raise ValueError(f"Mock Embedding {label} 必须是非空数值 array。")
+        return [float(item) for item in value]
+
+
 class InjectedOutputInference:
-    """每次推理都返回手写输出，用于验证拦截链路。"""
+    """Return a schema-valid handwritten output instead of calling inference."""
 
     def __init__(
         self,
@@ -49,10 +105,3 @@ class InjectedOutputInference:
     ) -> dict[str, Any]:
         self.retry_inference_called += 1
         return self.output
-
-
-class UnexpectedModelCall:
-    """当故障注入意外调用真实模型路径时，立即给出明确错误。"""
-
-    def invoke(self, prompt: str) -> str:
-        raise RuntimeError("故障注入模式不应调用真实模型。")

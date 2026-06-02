@@ -74,7 +74,10 @@ def _add_fault_inject(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         Command.FAULT_INJECT.value,
         description="注入手写模型输出，验证审核拦截、重复审核和最终拒绝。",
-        epilog="该命令不会调用真实模型，适合人工编写不合规输出后执行回归验证。",
+        epilog=(
+            "默认只跳过推理模型。提供 --mock-embeddings 后还会跳过外部向量服务，"
+            "适合离线验证相似度分层和拦截链路。"
+        ),
         help="注入手写模型输出",
     )
     parser.add_argument(
@@ -86,4 +89,8 @@ def _add_fault_inject(subparsers: argparse._SubParsersAction) -> None:
         "--output",
         default=str(project_path("fixtures/fault_injection/marketing_copy_rejected.json")),
         help="需要注入的 JSON 模型输出文件",
+    )
+    parser.add_argument(
+        "--mock-embeddings",
+        help="可选 Mock Embedding JSON 文件；提供后不调用外部 embedding 服务",
     )

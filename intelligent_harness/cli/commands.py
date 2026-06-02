@@ -12,11 +12,8 @@ from intelligent_harness.adapters.paths import project_path
 from intelligent_harness.adapters.settings import load_harness_settings
 from intelligent_harness.assembler import build_harness
 from intelligent_harness.cli.constants import Command
-from intelligent_harness.cli.fault_injection import (
-    InjectedOutputInference,
-    UnexpectedModelCall,
-)
-from intelligent_harness.models import HarnessWorkflowState
+from intelligent_harness.cli.fault_injection import InjectedEmbeddings, InjectedOutputInference
+from intelligent_harness.models import HarnessResponse, HarnessWorkflowState
 from intelligent_harness.scenarios import ScenarioDefinition, ScenarioRegistry
 
 CommandHandler = Callable[[Namespace], None]
@@ -34,6 +31,7 @@ class RunArgs(Protocol):
 class FaultInjectionArgs(Protocol):
     scenario: str
     output: str
+    mock_embeddings: str | None
 
 
 def validate_config(args: object) -> None:
@@ -61,7 +59,7 @@ def run_harness(args: RunArgs) -> None:
     scenario.validate("input", payload)
     state = HarnessWorkflowState(scenario=scenario.name, input=payload)
     response = build_harness(scenario_name=scenario.name).execute(state)
-    print(response.model_dump_json(indent=2))
+    _print_host_payload(response)
 
 
 def inject_fault(args: FaultInjectionArgs) -> None:
@@ -70,10 +68,14 @@ def inject_fault(args: FaultInjectionArgs) -> None:
     harness = build_harness(
         scenario_name=scenario.name,
         inference=inference,
-        model=UnexpectedModelCall(),
+        embeddings=(
+            InjectedEmbeddings.from_file(args.mock_embeddings)
+            if args.mock_embeddings
+            else None
+        ),
     )
     state = HarnessWorkflowState(scenario=scenario.name, input={})
-    print(harness.execute(state).model_dump_json(indent=2))
+    _print_host_payload(harness.execute(state))
 
 
 HANDLERS: dict[Command, CommandHandler] = {
@@ -105,6 +107,7 @@ def _scenario_json(
     if include_resources:
         data["prompts"] = scenario.prompts
         data["schemas"] = scenario.schemas
+        data["risk_samples"] = scenario.risk_samples
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
@@ -118,3 +121,7 @@ def _load_json_object(path: Path, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label}必须是 JSON object: {path}")
     return value
+
+
+def _print_host_payload(response: HarnessResponse) -> None:
+    print(json.dumps(response.to_host_payload(), ensure_ascii=False, indent=2))

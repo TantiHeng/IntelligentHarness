@@ -15,6 +15,7 @@ from intelligent_harness.models import (
     HarnessDecision,
     HarnessResponse,
     HarnessWorkflowState,
+    ReviewAction,
 )
 from intelligent_harness.ports import AuditRepository, Inference, Reviewer
 
@@ -101,6 +102,7 @@ class HarnessWorkflow:
         *,
         retry: bool,
     ) -> dict[str, Any]:
+        """Choose initial inference or revision using the previous rejected output."""
         if retry and state.output is not None and state.review is not None:
             return self.inference.retry_inference(state.input, state.output, state.review)
         return self.inference.infer(state.input)
@@ -159,6 +161,7 @@ class HarnessWorkflow:
         state: HarnessWorkflowState,
         decision: HarnessDecision,
     ) -> dict[str, Any]:
+        """Persist the terminal state and publish the matching terminal event."""
         reasons = state.review.reasons if state.review else [state.last_error or "无审核结果"]
         if decision == HarnessDecision.REJECTED:
             self._publish_event(
@@ -194,6 +197,7 @@ class HarnessWorkflow:
         step: str,
         **updates: Any,
     ) -> None:
+        """Publish an event using state counters unless a node supplies newer values."""
         self.events.publish(
             BusinessEvent(
                 run_id=state.run_id,
@@ -223,6 +227,10 @@ class HarnessWorkflow:
         """Retry reviews first, regenerate rejected output second, then reject."""
         if state.last_error is not None:
             return "error"
+        if state.review and state.review.action == ReviewAction.REJECT:
+            return "reject"
+        if state.review and state.review.action == ReviewAction.REVIEW_AGAIN:
+            return "review" if state.review_attempt < self.max_review_attempts else "reject"
         if state.review and state.review.approved:
             return "approve"
         if state.review_attempt < self.max_review_attempts:
@@ -232,6 +240,11 @@ class HarnessWorkflow:
         return "reject"
 
     def _build_graph(self) -> Any:
+        """Compile the bounded transaction graph.
+
+        Inference failures route only to retry or error. Review rejections may
+        repeat review, regenerate output, or become a terminal rejection.
+        """
         graph = StateGraph(HarnessWorkflowState)
         graph.add_node("infer", self._infer)
         graph.add_node("retry", lambda state: self._infer(state, retry=True))
@@ -259,6 +272,7 @@ class HarnessWorkflow:
 
     @staticmethod
     def _response_from_state(result: HarnessWorkflowState) -> HarnessResponse:
+        """Expose the persisted graph result without leaking mutable workflow state."""
         decision = result.decision or HarnessDecision.ERROR
         return HarnessResponse(
             run_id=result.run_id,
@@ -279,6 +293,7 @@ class HarnessWorkflow:
         state: HarnessWorkflowState,
         error: Exception,
     ) -> HarnessResponse:
+        """Return a minimal error response when the graph cannot finish normally."""
         return HarnessResponse(
             run_id=state.run_id,
             thread_id=state.thread_id,

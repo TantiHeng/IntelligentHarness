@@ -1,1 +1,16 @@
-{"type":"object","required":["product","customer"],"properties":{"product":{"type":"object","required":["name"],"properties":{"name":{"type":"string","minLength":1},"selling_points":{"type":"array","items":{"type":"string"}},"price":{"type":["string","null"]},"target_audience":{"type":["string","null"]}}},"customer":{"type":"object","required":["name"],"properties":{"name":{"type":"string","minLength":1},"segment":{"type":["string","null"]},"pain_points":{"type":"array","items":{"type":"string"}},"contact":{"type":["string","null"]}}},"channel":{"enum":["email","sms","wechat"]},"tone":{"type":"string"}}}
+{"type":"object",
+  "required":["product","customer"],
+  "properties":{"product":{"type":"object","required":["name"],
+    "properties":{"name":{"type":"string","minLength":1},
+      "selling_points":{"type":"array","items":{"type":"string"}},
+      "price":{"type":["string","null"]},
+      "target_audience":{"type":["string","null"]}}},
+    "customer":{"type":"object","required":["name"],
+      "properties":{"name":{"type":"string","minLength":1},
+        "segment":{"type":["string","null"]},
+        "pain_points":{"type":"array","items":{"type":"string"}},
+        "contact":{"type":["string","null"]}}},
+    "channel":{"enum":["email","sms","wechat"]},
+    "tone":{"type":"string"}
+  }
+}

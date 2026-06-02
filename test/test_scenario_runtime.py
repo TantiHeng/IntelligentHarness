@@ -8,7 +8,7 @@
 import pytest
 from jsonschema import ValidationError
 
-from intelligent_harness.scenarios import ScenarioRegistry
+from intelligent_harness.scenarios import ScenarioDefinition, ScenarioRegistry
 
 
 def test_registry_loads_four_external_scenarios():
@@ -45,3 +45,41 @@ def test_json_schema_rejects_invalid_loan_input():
                 "loan_type": "personal",
             },
         )
+
+
+def test_validation_checks_configured_retry_prompt(tmp_path):
+    scenario = ScenarioDefinition(
+        name="broken_retry",
+        description="broken retry prompt",
+        reviewer="llm",
+        root=tmp_path,
+        prompts={
+            "inference": "inference.txt",
+            "retry_inference": "missing.txt",
+            "review": "review.txt",
+        },
+        schemas={"input": "input.json", "output": "output.json"},
+    )
+    (tmp_path / "inference.txt").write_text("{input_json}", encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError):
+        scenario.validate_resources()
+
+
+def test_risk_sample_validation_rejects_empty_examples(tmp_path):
+    (tmp_path / "risk_samples.json").write_text(
+        '[{"intent": "guaranteed_return", "examples": []}]',
+        encoding="utf-8",
+    )
+    scenario = ScenarioDefinition(
+        name="broken_samples",
+        description="broken semantic samples",
+        reviewer="semantic_layered",
+        root=tmp_path,
+        prompts={},
+        schemas={},
+        risk_samples="risk_samples.json",
+    )
+
+    with pytest.raises(ValueError, match="examples"):
+        scenario.load_risk_samples()

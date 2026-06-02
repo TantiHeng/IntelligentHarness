@@ -1,17 +1,21 @@
 """核心控制事务测试。
 
 验证审核通过时返回 approved 响应并保存审计记录。
-验证手写不合规输出会触发重复审核、有限次重新推理、九次拦截事件和最终拒绝事件。
-使用本地故障注入替身，不调用真实模型，也不执行宿主程序的真实副作用。
+验证手写输出配合离线审核替身会触发重复审核、有限次重新推理、九次拦截事件和最终拒绝事件。
+测试不调用真实模型，也不执行宿主程序的真实副作用。
 """
 
 from intelligent_harness.adapters.repository import SQLiteAuditRepository
 from intelligent_harness.cli.fault_injection import InjectedOutputInference
 from intelligent_harness.errors import NonRetryableInferenceError
 from intelligent_harness.events import BusinessEventService, BusinessEventType
-from intelligent_harness.models import HarnessDecision, HarnessWorkflowState, ReviewResult
+from intelligent_harness.models import (
+    HarnessDecision,
+    HarnessWorkflowState,
+    ReviewAction,
+    ReviewResult,
+)
 from intelligent_harness.scenarios import ScenarioRegistry
-from intelligent_harness.services import ReviewService
 from intelligent_harness.workflow import HarnessWorkflow
 
 
@@ -23,6 +27,31 @@ class ApproveReviewer:
 class FailingReviewer:
     def review(self, output):
         raise RuntimeError("review service unavailable")
+
+
+class RejectReviewer:
+    def review(self, output):
+        return ReviewResult(approved=False, score=40, reasons=["离线审核替身拒绝"])
+
+
+class DirectRejectReviewer:
+    def review(self, output):
+        return ReviewResult(
+            approved=False,
+            score=90,
+            reasons=["高风险语义直接拒绝"],
+            action=ReviewAction.REJECT,
+        )
+
+
+class ReviewAgainReviewer:
+    def review(self, output):
+        return ReviewResult(
+            approved=False,
+            score=70,
+            reasons=["中风险语义再次审核"],
+            action=ReviewAction.REVIEW_AGAIN,
+        )
 
 
 class FailingInference:
@@ -68,7 +97,7 @@ def test_handwritten_fault_is_rejected_and_logged(tmp_path):
         {"title": "行业第一", "body": "100%保证稳赚", "call_to_action": "购买"}, scenario
     )
     repo = SQLiteAuditRepository(tmp_path / "audit.db")
-    reviewer = ReviewService(object(), scenario)
+    reviewer = RejectReviewer()
     workflow = HarnessWorkflow(inference, reviewer, repo, BusinessEventService(repo))
     initial = state()
 
@@ -77,8 +106,83 @@ def test_handwritten_fault_is_rejected_and_logged(tmp_path):
 
     assert response.decision == HarnessDecision.REJECTED
     assert response.approved is False
+    assert inference.infer_called == 1
+    assert inference.retry_inference_called == 2
     assert [x["event_type"] for x in events].count(BusinessEventType.REVIEW_REJECTED.value) == 9
     assert [x["event_type"] for x in events].count(BusinessEventType.FINAL_REJECTED.value) == 1
+
+
+def test_minimum_attempt_policy_rejects_after_one_inference_and_one_review(tmp_path):
+    scenario = ScenarioRegistry().get("marketing_copy")
+    inference = InjectedOutputInference(
+        {"title": "行业第一", "body": "正文", "call_to_action": "购买"}, scenario
+    )
+    repo = SQLiteAuditRepository(tmp_path / "audit.db")
+    reviewer = RejectReviewer()
+    workflow = HarnessWorkflow(
+        inference,
+        reviewer,
+        repo,
+        BusinessEventService(repo),
+        max_review_attempts=1,
+        max_inference_attempts=1,
+    )
+    initial = state()
+
+    response = workflow.execute(initial)
+    events = repo.list_events(initial.run_id)
+
+    assert response.decision == HarnessDecision.REJECTED
+    assert inference.infer_called == 1
+    assert inference.retry_inference_called == 0
+    assert response.inference_attempt == 1
+    assert response.review_attempt == 1
+    assert [x["event_type"] for x in events].count(BusinessEventType.REVIEW_REJECTED.value) == 1
+    assert [x["event_type"] for x in events].count(BusinessEventType.FINAL_REJECTED.value) == 1
+
+
+def test_direct_reject_action_does_not_repeat_review_or_inference(tmp_path):
+    scenario = ScenarioRegistry().get("marketing_copy")
+    inference = InjectedOutputInference(
+        {"title": "标题", "body": "正文", "call_to_action": "购买"}, scenario
+    )
+    repo = SQLiteAuditRepository(tmp_path / "audit.db")
+    workflow = HarnessWorkflow(
+        inference,
+        DirectRejectReviewer(),
+        repo,
+        BusinessEventService(repo),
+    )
+
+    response = workflow.execute(state())
+
+    assert response.decision == HarnessDecision.REJECTED
+    assert response.inference_attempt == 1
+    assert response.review_attempt == 1
+    assert inference.retry_inference_called == 0
+
+
+def test_review_again_action_stops_at_review_limit_without_regeneration(tmp_path):
+    scenario = ScenarioRegistry().get("marketing_copy")
+    inference = InjectedOutputInference(
+        {"title": "标题", "body": "正文", "call_to_action": "购买"}, scenario
+    )
+    repo = SQLiteAuditRepository(tmp_path / "audit.db")
+    workflow = HarnessWorkflow(
+        inference,
+        ReviewAgainReviewer(),
+        repo,
+        BusinessEventService(repo),
+        max_review_attempts=2,
+        max_inference_attempts=3,
+    )
+
+    response = workflow.execute(state())
+
+    assert response.decision == HarnessDecision.REJECTED
+    assert response.inference_attempt == 1
+    assert response.review_attempt == 2
+    assert inference.retry_inference_called == 0
 
 
 def test_retryable_inference_error_can_recover(tmp_path):

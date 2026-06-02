@@ -30,6 +30,10 @@ class Reviewer(Protocol):
     def review(self, output: dict[str, Any]) -> ReviewResult: ...
 
 
+class EmbeddingModel(Protocol):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
+
+
 class AuditRepository(Protocol):
     def save_run(self, state: HarnessWorkflowState) -> str: ...
 

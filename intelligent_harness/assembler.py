@@ -1,5 +1,6 @@
 """依赖装配：为宿主程序和 CLI 组合默认实现，不承载领域判断。"""
 
+from intelligent_harness.adapters.embedding import EmbeddingClient
 from intelligent_harness.adapters.llm import LLMClient
 from intelligent_harness.adapters.repository import SQLiteAuditRepository
 from intelligent_harness.adapters.settings import RuntimeConfig, load_runtime_config
@@ -7,12 +8,18 @@ from intelligent_harness.events import BusinessEventService
 from intelligent_harness.ports import (
     AlertSink,
     ContextEnhancer,
+    EmbeddingModel,
     Inference,
     PrivacyProcessor,
     Reviewer,
 )
-from intelligent_harness.scenarios import ScenarioRegistry
-from intelligent_harness.services import InferenceService, ReviewService, TextModel
+from intelligent_harness.scenarios import ScenarioDefinition, ScenarioRegistry
+from intelligent_harness.services import (
+    InferenceService,
+    ReviewService,
+    SemanticLayeredReviewer,
+    TextModel,
+)
 from intelligent_harness.workflow import HarnessWorkflow
 
 
@@ -23,6 +30,7 @@ def build_harness(
     model: TextModel | None = None,
     inference: Inference | None = None,
     reviewer: Reviewer | None = None,
+    embeddings: EmbeddingModel | None = None,
     context: ContextEnhancer | None = None,
     privacy: PrivacyProcessor | None = None,
     sink: AlertSink | None = None,
@@ -39,11 +47,13 @@ def build_harness(
         context,
         privacy,
     )
-    review_service = reviewer or ReviewService(
-        _require_model(resolved_model),
-        scenario,
-        context,
-        privacy,
+    review_service = reviewer or _build_reviewer(
+        scenario=scenario,
+        model=_require_model(resolved_model),
+        embeddings=embeddings,
+        config=runtime,
+        context=context,
+        privacy=privacy,
     )
     event_service = BusinessEventService(
         repository,
@@ -65,3 +75,23 @@ def _require_model(model: TextModel | None) -> TextModel:
     if model is None:
         raise RuntimeError("缺少模型实现。")
     return model
+
+
+def _build_reviewer(
+    *,
+    scenario: ScenarioDefinition,
+    model: TextModel,
+    embeddings: EmbeddingModel | None,
+    config: RuntimeConfig,
+    context: ContextEnhancer | None,
+    privacy: PrivacyProcessor | None,
+) -> Reviewer:
+    review_service = ReviewService(model, scenario, context, privacy)
+    if scenario.reviewer != "semantic_layered":
+        return review_service
+    return SemanticLayeredReviewer(
+        embeddings or EmbeddingClient(config),
+        scenario,
+        review_service,
+        config.settings.semantic_review,
+    )

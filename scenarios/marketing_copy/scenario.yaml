@@ -1,6 +1,7 @@
 name: marketing_copy
 description: B2B 营销文案生成与合规审核
-reviewer: marketing_copy
+reviewer: semantic_layered
+risk_samples: risk_samples.json
 prompts:
   inference: prompts/inference.txt
   retry_inference: prompts/retry_inference.txt

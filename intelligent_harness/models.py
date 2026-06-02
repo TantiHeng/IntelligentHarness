@@ -12,6 +12,14 @@ class ReviewResult(BaseModel):
     score: int = Field(..., ge=0, le=100)
     reasons: list[str] = Field(default_factory=list)
     revision_suggestions: list[str] = Field(default_factory=list)
+    action: "ReviewAction | None" = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReviewAction(StrEnum):
+    APPROVE = "approve"
+    REVIEW_AGAIN = "review_again"
+    REJECT = "reject"
 
 
 class HarnessDecision(StrEnum):
@@ -49,3 +57,7 @@ class HarnessResponse(BaseModel):
     inference_attempt: int = 0
     review_attempt: int = 0
     record_id: str | None = None
+
+    def to_host_payload(self) -> dict[str, Any]:
+        """Export a JSON-compatible KV payload for host-side business dispatch."""
+        return self.model_dump(mode="json")

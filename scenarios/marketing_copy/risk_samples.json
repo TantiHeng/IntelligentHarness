@@ -1,0 +1,42 @@
+[
+  {
+    "intent": "guaranteed_return",
+    "examples": [
+      "稳赚不赔",
+      "收益只会增加，不存在亏损可能",
+      "购买后一定可以获得稳定回报"
+    ]
+  },
+  {
+    "intent": "unverifiable_effect_guarantee",
+    "examples": [
+      "保证百分百有效",
+      "采用方案后一定可以解决问题",
+      "承诺使用后立即见效"
+    ]
+  },
+  {
+    "intent": "absolute_ranking",
+    "examples": [
+      "行业第一",
+      "市场上没有任何竞争对手能超过我们",
+      "这是全行业最强的产品"
+    ]
+  },
+  {
+    "intent": "permanent_result",
+    "examples": [
+      "永久解决问题",
+      "效果可以一直持续下去",
+      "一次购买终身有效"
+    ]
+  },
+    {
+    "intent": "fling_abuses",
+    "examples": [
+      "操你妈",
+      "户口本只有一页",
+      "蠢货"
+    ]
+  }
+]

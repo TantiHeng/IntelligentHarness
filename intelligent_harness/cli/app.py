@@ -7,7 +7,6 @@ import yaml
 from jsonschema import SchemaError, ValidationError
 from pydantic import ValidationError as PydanticValidationError
 
-from intelligent_harness.cli.commands import HANDLERS
 from intelligent_harness.cli.constants import Command
 from intelligent_harness.cli.parser import build_parser
 
@@ -24,7 +23,16 @@ EXPECTED_USER_ERRORS = (
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse CLI arguments, dispatch one command and format expected user errors."""
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    if argv is not None and not argv:
+        parser.print_help()
+        return 0
+    if argv is None and len(sys.argv) == 1:
+        parser.print_help()
+        return 0
+    args = parser.parse_args(argv)
+    from intelligent_harness.cli.commands import HANDLERS
+
     try:
         HANDLERS[Command(args.command)](args)
     except EXPECTED_USER_ERRORS as exc:
