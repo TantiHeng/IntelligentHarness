@@ -1,0 +1,11 @@
+default_scenario: marketing_copy
+
+policy:
+  max_review_attempts: 3
+  max_inference_attempts: 3
+
+python_logging:
+  level: INFO
+
+business_events:
+  alert_severity_threshold: 2

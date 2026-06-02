@@ -1,0 +1,1 @@
+{"type":"object","required":["document_id","document_type"],"properties":{"document_id":{"type":"string","minLength":1},"document_type":{"type":"string","minLength":1},"period":{"type":["string","null"]},"entries":{"type":"array","items":{"type":"object"}}}}

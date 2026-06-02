@@ -3,5 +3,7 @@ langchain-openai
 langgraph
 pydantic
 python-dotenv
+PyYAML
+jsonschema
 pytest
 pytest-asyncio
